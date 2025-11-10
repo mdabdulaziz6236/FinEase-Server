@@ -22,7 +22,8 @@ const verifyToken = async (req, res, next) => {
   }
   const token = authorization.split(" ")[1];
   try {
-    await admin.auth().verifyIdToken(token);
+    const decoderUser = await admin.auth().verifyIdToken(token);
+    req.user = decoderUser;
     next();
   } catch {
     res.status(401).send({
@@ -47,13 +48,30 @@ async function run() {
 
     const db = client.db("FinEase");
     const transactionCollection = db.collection("transactions");
-
+    /* Add new transaction  */
     app.post("/transactions", verifyToken, async (req, res) => {
       const newTransaction = req.body;
+      if (req.user.email !== newTransaction.email) {
+        return res.status(403).send({ message: "Forbidden: Email mismatch." });
+      }
       const result = await transactionCollection.insertOne(newTransaction);
       res.send(result);
     });
-
+    /* get Transaction by user email   */
+    app.get("/my-transactions", verifyToken, async (req, res) => {
+      const email = req.query.email;
+      if (req.user.email !== email) {
+        return res.status(403).send({
+          message: "Forbidden access",
+        });
+      }
+      const result = await transactionCollection
+        .find({
+          email,
+        })
+        .toArray();
+      res.send(result);
+    });
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
