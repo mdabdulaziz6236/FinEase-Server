@@ -126,6 +126,24 @@ async function run() {
       const result = await transactionCollection.deleteOne(query);
       res.send({ result, message: "Transaction deleted successfully" });
     });
+    // PUT route: Update a transaction
+    app.put("/transaction/:id", verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const updatedData = req.body;
+      const query = { _id: new ObjectId(id) };
+      const transaction = await transactionCollection.findOne(query);
+      if (!transaction) {
+        return res.status(404).send({ message: "Transaction not found" });
+      }
+      if (transaction.email !== req.user.email) {
+        return res
+          .status(403)
+          .send({ message: "Forbidden: You do not own this transaction" });
+      }
+      await transactionCollection.updateOne(query, { $set: updatedData });
+
+      res.send({ message: "Transaction updated successfully" });
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
